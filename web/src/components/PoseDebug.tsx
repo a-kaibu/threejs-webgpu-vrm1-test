@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from "react";
 import { useWebRTC, type PoseFrame } from "../hooks/useWebRTC";
 
-const SERVER_URL = "http://127.0.0.1:8787";
+const SERVER_URL = "/api";
 
 const BODY_EDGES: [number, number][] = [
   [0, 1],
@@ -204,7 +204,8 @@ export function PoseDebug() {
               ["FPS", stats.fps],
               ["フレーム", stats.frame],
               ["人数", stats.persons],
-              ["遅延", `${stats.latencyMs} ms`],
+              ["通信遅延", `${stats.latencyMs} ms`],
+              ["推論時間", `${stats.inferenceMs} ms`],
             ] as [string, number | string][]
           ).map(([label, val]) => (
             <div key={label} style={{ display: "flex", justifyContent: "space-between" }}>

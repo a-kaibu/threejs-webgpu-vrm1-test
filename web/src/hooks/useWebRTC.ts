@@ -6,6 +6,7 @@ type WebRTCStatus = "idle" | "connecting" | "connected" | "error";
 export interface PoseFrame {
   frame: number;
   timestamp: number;
+  inference_ms: number;
   persons: { keypoints: [number, number][]; scores: number[] }[];
   image_size: [number, number];
 }
@@ -15,6 +16,7 @@ export interface WebRTCStats {
   frame: number;
   persons: number;
   latencyMs: number;
+  inferenceMs: number;
 }
 
 export interface UseWebRTCReturn {
@@ -29,7 +31,13 @@ export interface UseWebRTCReturn {
 export function useWebRTC(serverUrl: string, transform: string): UseWebRTCReturn {
   const [status, setStatus] = useState<WebRTCStatus>("idle");
   const [poseFrame, setPoseFrame] = useState<PoseFrame | null>(null);
-  const [stats, setStats] = useState<WebRTCStats>({ fps: 0, frame: 0, persons: 0, latencyMs: 0 });
+  const [stats, setStats] = useState<WebRTCStats>({
+    fps: 0,
+    frame: 0,
+    persons: 0,
+    latencyMs: 0,
+    inferenceMs: 0,
+  });
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -46,7 +54,7 @@ export function useWebRTC(serverUrl: string, transform: string): UseWebRTCReturn
     pcRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
     setPoseFrame(null);
-    setStats({ fps: 0, frame: 0, persons: 0, latencyMs: 0 });
+    setStats({ fps: 0, frame: 0, persons: 0, latencyMs: 0, inferenceMs: 0 });
     setStatus("idle");
   }, []);
 
@@ -65,23 +73,47 @@ export function useWebRTC(serverUrl: string, transform: string): UseWebRTCReturn
       }
     };
 
-    pc.ondatachannel = (evt) => {
-      if (evt.channel.label !== "pose") return;
-      evt.channel.onmessage = (e: MessageEvent<string>) => {
-        const frame = JSON.parse(e.data) as PoseFrame;
+    const poseChannel = pc.createDataChannel("pose", {
+      ordered: false,
+      maxRetransmits: 0,
+    });
+    poseChannel.onmessage = (e: MessageEvent<string>) => {
+      const frame = JSON.parse(e.data) as PoseFrame;
 
-        fpsCountRef.current++;
-        const now = performance.now();
-        if (now - fpsTimerRef.current >= 1000) {
-          const fps = fpsCountRef.current;
-          fpsCountRef.current = 0;
-          fpsTimerRef.current = now;
-          const latencyMs = Math.round((Date.now() / 1000 - frame.timestamp) * 1000);
-          setStats({ fps, frame: frame.frame, persons: frame.persons.length, latencyMs });
-        }
+      fpsCountRef.current++;
+      const now = performance.now();
+      if (now - fpsTimerRef.current >= 1000) {
+        const fps = fpsCountRef.current;
+        fpsCountRef.current = 0;
+        fpsTimerRef.current = now;
+        void pc.getStats().then((report) => {
+          let latencyMs = 0;
+          report.forEach((value) => {
+            const pair = value as RTCStats & {
+              state?: string;
+              nominated?: boolean;
+              currentRoundTripTime?: number;
+            };
+            if (
+              pair.type === "candidate-pair" &&
+              pair.state === "succeeded" &&
+              pair.nominated &&
+              pair.currentRoundTripTime !== undefined
+            ) {
+              latencyMs = Math.round((pair.currentRoundTripTime * 1000) / 2);
+            }
+          });
+          setStats({
+            fps,
+            frame: frame.frame,
+            persons: frame.persons.length,
+            latencyMs,
+            inferenceMs: frame.inference_ms,
+          });
+        });
+      }
 
-        setPoseFrame(frame);
-      };
+      setPoseFrame(frame);
     };
 
     pc.onconnectionstatechange = () => {
@@ -92,7 +124,14 @@ export function useWebRTC(serverUrl: string, transform: string): UseWebRTCReturn
     };
 
     void (async () => {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          frameRate: { ideal: 15, max: 20 },
+        },
+        audio: false,
+      });
       if (pcRef.current !== pc) {
         stream.getTracks().forEach((t) => t.stop());
         return;
@@ -119,6 +158,9 @@ export function useWebRTC(serverUrl: string, transform: string): UseWebRTCReturn
           video_transform: transform,
         }),
       });
+      if (!res.ok) {
+        throw new Error(`WebRTC signaling failed: ${res.status} ${res.statusText}`);
+      }
       const answer = (await res.json()) as { sdp: string; type: RTCSdpType };
       await pc.setRemoteDescription(answer);
     })().catch(() => setStatus("error"));

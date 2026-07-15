@@ -40,9 +40,11 @@ class VideoTransformTrack(MediaStreamTrack):
             img = frame.to_ndarray(format="bgr24")
             h, w = img.shape[:2]
 
+            inference_started = time.perf_counter()
             keypoints, scores = await asyncio.to_thread(pose_estimator.estimate, img)
+            inference_ms = round((time.perf_counter() - inference_started) * 1000)
 
-            self._send_pose_data(keypoints, scores, w, h)
+            self._send_pose_data(keypoints, scores, w, h, inference_ms)
 
             if self.transform == "pose" and len(keypoints) > 0:
                 img = pose_estimator.draw(img, keypoints, scores)
@@ -61,6 +63,7 @@ class VideoTransformTrack(MediaStreamTrack):
         scores,
         width: int,
         height: int,
+        inference_ms: int,
     ):
         if self.data_channel is None or self.data_channel.readyState != "open":
             return
@@ -80,6 +83,7 @@ class VideoTransformTrack(MediaStreamTrack):
             {
                 "frame": self.frame_count,
                 "timestamp": round(time.time(), 3),
+                "inference_ms": inference_ms,
                 "persons": persons,
                 "image_size": [width, height],
             }
@@ -104,12 +108,15 @@ async def offer(request):
 
     log_info("Created for %s", request.remote)
 
-    # サーバー側からDataChannelを作成（setRemoteDescriptionの前に）
-    pose_channel = pc.createDataChannel("pose", ordered=False, maxRetransmits=0)
+    video_tracks = []
 
-    @pose_channel.on("open")
-    def on_pose_channel_open():
-        log_info("DataChannel 'pose' opened")
+    @pc.on("datachannel")
+    def on_datachannel(channel):
+        if channel.label != "pose":
+            return
+        for video_track in video_tracks:
+            video_track.data_channel = channel
+        log_info("DataChannel 'pose' received")
 
     @pc.on("connectionstatechange")
     async def on_connectionstatechange():
@@ -124,13 +131,12 @@ async def offer(request):
 
         if track.kind == "video":
             transform = params.get("video_transform", "pose")
-            pc.addTrack(
-                VideoTransformTrack(
-                    relay.subscribe(track),
-                    transform=transform,
-                    data_channel=pose_channel,
-                )
+            video_track = VideoTransformTrack(
+                relay.subscribe(track, buffered=False),
+                transform=transform,
             )
+            video_tracks.append(video_track)
+            pc.addTrack(video_track)
 
         @track.on("ended")
         async def on_ended():
@@ -179,7 +185,7 @@ if __name__ == "__main__":
         "--host", default="0.0.0.0", help="Host for HTTP server (default: 0.0.0.0)"
     )
     parser.add_argument(
-        "--port", type=int, default=8787, help="Port for HTTP server (default: 8787)"
+        "--port", type=int, default=8989, help="Port for HTTP server (default: 8989)"
     )
     parser.add_argument("--verbose", "-v", action="count")
     args = parser.parse_args()

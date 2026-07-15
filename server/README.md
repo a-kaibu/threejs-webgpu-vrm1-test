@@ -19,12 +19,12 @@ uv run python src/server.py
 # 初回起動時はONNXモデルを自動ダウンロード（~300MB）
 ```
 
-デフォルトは `http://0.0.0.0:8787` で待ち受け。
+デフォルトは `http://0.0.0.0:8989` で待ち受け。
 
 ## Architecture
 
 ```
-Browser                                    Python Server (HTTP :8787)
+Browser                                    Python Server (HTTP :8989)
 ┌─────────────────────────┐                ┌──────────────────────────────┐
 │ getUserMedia (camera)   │                │ aiohttp (signaling)          │
 │ RTCPeerConnection       │──video track──>│ aiortc (WebRTC)              │
@@ -279,7 +279,7 @@ uv run python src/server.py [options]
 | 引数 | デフォルト | 説明 |
 |---|---|---|
 | `--host` | `0.0.0.0` | リッスンするIPアドレス |
-| `--port` | `8787` | ポート番号 |
+| `--port` | `8989` | ポート番号 |
 | `--cert-file` | なし | SSL証明書ファイルパス（HTTPS用） |
 | `--key-file` | なし | SSL秘密鍵ファイルパス（HTTPS用） |
 | `--verbose`, `-v` | なし | デバッグログ出力 |
