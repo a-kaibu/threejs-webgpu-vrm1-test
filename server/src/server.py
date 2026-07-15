@@ -10,7 +10,7 @@ import uuid
 
 from aiohttp import web
 from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
-from aiortc.contrib.media import MediaBlackhole, MediaRelay
+from aiortc.contrib.media import MediaRelay
 from av import VideoFrame
 
 from pose import PoseEstimator
@@ -104,8 +104,6 @@ async def offer(request):
 
     log_info("Created for %s", request.remote)
 
-    recorder = MediaBlackhole()
-
     # サーバー側からDataChannelを作成（setRemoteDescriptionの前に）
     pose_channel = pc.createDataChannel("pose", ordered=False, maxRetransmits=0)
 
@@ -137,10 +135,8 @@ async def offer(request):
         @track.on("ended")
         async def on_ended():
             log_info("Track %s ended", track.kind)
-            await recorder.stop()
 
     await pc.setRemoteDescription(offer_desc)
-    await recorder.start()
 
     answer = await pc.createAnswer()
     await pc.setLocalDescription(answer)
@@ -150,11 +146,6 @@ async def offer(request):
         text=json.dumps(
             {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
         ),
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-        },
     )
 
 
@@ -162,6 +153,22 @@ async def on_shutdown(app):
     coros = [pc.close() for pc in pcs]
     await asyncio.gather(*coros)
     pcs.clear()
+
+
+CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+}
+
+
+@web.middleware
+async def cors_middleware(request, handler):
+    if request.method == "OPTIONS":
+        return web.Response(headers=CORS_HEADERS)
+    response = await handler(request)
+    response.headers.update(CORS_HEADERS)
+    return response
 
 
 if __name__ == "__main__":
@@ -188,19 +195,9 @@ if __name__ == "__main__":
     else:
         ssl_context = None
 
-    app = web.Application()
+    app = web.Application(middlewares=[cors_middleware])
     app.on_shutdown.append(on_shutdown)
     app.router.add_post("/offer", offer)
-    app.router.add_options(
-        "/offer",
-        lambda request: web.Response(
-            headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "POST, OPTIONS",
-                "Access-Control-Allow-Headers": "Content-Type",
-            }
-        ),
-    )
     web.run_app(
         app, access_log=None, host=args.host, port=args.port, ssl_context=ssl_context
     )

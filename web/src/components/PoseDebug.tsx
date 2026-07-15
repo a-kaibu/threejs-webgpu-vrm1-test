@@ -32,10 +32,6 @@ function drawPose(canvas: HTMLCanvasElement, video: HTMLVideoElement, frame: Pos
   const ctx = canvas.getContext("2d")!;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  const [iw, ih] = frame.image_size;
-  const sw = canvas.width / iw;
-  const sh = canvas.height / ih;
-
   for (const person of frame.persons) {
     const { keypoints: kpts, scores } = person;
 
@@ -45,8 +41,8 @@ function drawPose(canvas: HTMLCanvasElement, video: HTMLVideoElement, frame: Pos
       if (scores[a] < 0.43 || scores[b] < 0.43) continue;
       ctx.strokeStyle = a < 11 ? "#51e5ff" : a % 2 === 1 ? "#00ff88" : "#ff8c00";
       ctx.beginPath();
-      ctx.moveTo(kpts[a][0] * iw * sw, kpts[a][1] * ih * sh);
-      ctx.lineTo(kpts[b][0] * iw * sw, kpts[b][1] * ih * sh);
+      ctx.moveTo(kpts[a][0] * canvas.width, kpts[a][1] * canvas.height);
+      ctx.lineTo(kpts[b][0] * canvas.width, kpts[b][1] * canvas.height);
       ctx.stroke();
     }
 
@@ -54,7 +50,7 @@ function drawPose(canvas: HTMLCanvasElement, video: HTMLVideoElement, frame: Pos
       if (scores[i] < 0.43) continue;
       ctx.fillStyle = "#fff";
       ctx.beginPath();
-      ctx.arc(kpts[i][0] * iw * sw, kpts[i][1] * ih * sh, 3, 0, Math.PI * 2);
+      ctx.arc(kpts[i][0] * canvas.width, kpts[i][1] * canvas.height, 3, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -72,7 +68,7 @@ export function PoseDebug() {
     if (poseFrame && overlayRef.current && videoRef.current) {
       drawPose(overlayRef.current, videoRef.current, poseFrame);
     }
-  }, [poseFrame, videoRef]);
+  }, [poseFrame]);
 
   const jsonPreview = poseFrame
     ? JSON.stringify(

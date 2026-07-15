@@ -9,7 +9,11 @@ export function VrmCanvas() {
   const { vrmUrl, onDragOver, onDrop } = useVrm();
 
   return (
-    <div style={{ width: "100%", height: "100%" }} onDragOver={onDragOver} onDrop={onDrop}>
+    <div
+      style={{ position: "relative", width: "100%", height: "100%" }}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+    >
       {!vrmUrl && (
         <div
           style={{

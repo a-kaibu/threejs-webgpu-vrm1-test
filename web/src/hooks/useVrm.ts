@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { DragEvent } from "react";
 
 interface UseVrmReturn {
@@ -20,12 +20,19 @@ export function useVrm(): UseVrmReturn {
       const file = e.dataTransfer.files[0];
       if (!file) return;
       const prev = vrmUrl;
-      const url = URL.createObjectURL(new Blob([file], { type: "application/octet-stream" }));
+      const url = URL.createObjectURL(file);
       setVrmUrl(url);
       if (prev) URL.revokeObjectURL(prev);
     },
     [vrmUrl],
   );
+
+  // Revoke the current URL on unmount to avoid memory leaks
+  useEffect(() => {
+    return () => {
+      if (vrmUrl) URL.revokeObjectURL(vrmUrl);
+    };
+  }, [vrmUrl]);
 
   return { vrmUrl, onDragOver, onDrop };
 }

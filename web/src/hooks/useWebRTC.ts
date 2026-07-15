@@ -33,10 +33,15 @@ export function useWebRTC(serverUrl: string, transform: string): UseWebRTCReturn
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const fpsCountRef = useRef(0);
   const fpsTimerRef = useRef(performance.now());
 
   const disconnect = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    fpsCountRef.current = 0;
+    fpsTimerRef.current = performance.now();
     pcRef.current?.close();
     pcRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
@@ -88,19 +93,21 @@ export function useWebRTC(serverUrl: string, transform: string): UseWebRTCReturn
 
     void (async () => {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      if (pcRef.current !== pc) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      streamRef.current = stream;
       for (const track of stream.getTracks()) pc.addTrack(track, stream);
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
       await new Promise<void>((resolve) => {
-        if (pc.iceGatheringState === "complete") {
-          resolve();
-          return;
-        }
         pc.onicegatheringstatechange = () => {
           if (pc.iceGatheringState === "complete") resolve();
         };
+        if (pc.iceGatheringState === "complete") resolve();
       });
 
       const res = await fetch(`${serverUrl}/offer`, {
