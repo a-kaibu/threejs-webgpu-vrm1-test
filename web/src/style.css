@@ -9,23 +9,11 @@ body {
   background: #1a1a2e;
 }
 
+#root {
+  width: 100dvw;
+  height: 100dvh;
+}
+
 canvas {
   display: block;
-}
-
-#info {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #888;
-  font-family: system-ui, sans-serif;
-  font-size: 1.5rem;
-  pointer-events: none;
-  user-select: none;
-  transition: opacity 0.3s;
-}
-
-#info.hidden {
-  opacity: 0;
 }

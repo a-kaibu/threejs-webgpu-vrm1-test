@@ -11,10 +11,18 @@
   },
   "dependencies": {
     "@pixiv/three-vrm": "^3.5.5",
+    "@react-three/drei": "^10",
+    "@react-three/fiber": "^9",
+    "@tanstack/react-router": "^1",
+    "react": "^19",
+    "react-dom": "^19",
     "three": "^0.185.1"
   },
   "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
     "@types/three": "^0.185.1",
+    "@vitejs/plugin-react": "^4",
     "typescript": "~6.0.2",
     "vite": "catalog:",
     "vite-plus": "catalog:"

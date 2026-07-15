@@ -1,1 +1,1 @@
-vp staged
+cd "$(dirname "$0")/.." && vp staged
