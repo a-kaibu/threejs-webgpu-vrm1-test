@@ -1,60 +1,112 @@
 import "./style.css";
-import typescriptLogo from "./assets/typescript.svg";
-import viteLogo from "./assets/vite.svg";
-import heroImg from "./assets/hero.png";
-import { setupCounter } from "./counter.ts";
+import * as THREE from "three/webgpu";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { VRMLoaderPlugin, MToonMaterialLoaderPlugin, VRMUtils, type VRM } from "@pixiv/three-vrm";
+import { MToonNodeMaterial } from "@pixiv/three-vrm/nodes";
 
-document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
-<section id="center">
-  <div class="hero">
-    <img src="${heroImg}" class="base" width="170" height="179">
-    <img src="${typescriptLogo}" class="framework" alt="TypeScript logo"/>
-    <img src="${viteLogo}" class="vite" alt="Vite logo" />
-  </div>
-  <div>
-    <h1>Get started</h1>
-    <p>Edit <code>src/main.ts</code> and save to test <code>HMR</code></p>
-  </div>
-  <button id="counter" type="button" class="counter"></button>
-</section>
+// Renderer
+const renderer = new THREE.WebGPURenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+document.body.appendChild(renderer.domElement);
 
-<div class="ticks"></div>
+// Camera
+const camera = new THREE.PerspectiveCamera(30.0, window.innerWidth / window.innerHeight, 0.1, 20.0);
+camera.position.set(0.0, 1.0, 5.0);
 
-<section id="next-steps">
-  <div id="docs">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#documentation-icon"></use></svg>
-    <h2>Documentation</h2>
-    <p>Your questions, answered</p>
-    <ul>
-      <li>
-        <a href="https://vite.dev/" target="_blank">
-          <img class="logo" src="${viteLogo}" alt="" />
-          Explore Vite
-        </a>
-      </li>
-      <li>
-        <a href="https://www.typescriptlang.org" target="_blank">
-          <img class="button-icon" src="${typescriptLogo}" alt="">
-          Learn more
-        </a>
-      </li>
-    </ul>
-  </div>
-  <div id="social">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#social-icon"></use></svg>
-    <h2>Connect with us</h2>
-    <p>Join the Vite community</p>
-    <ul>
-      <li><a href="https://github.com/vitejs/vite" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#github-icon"></use></svg>GitHub</a></li>
-      <li><a href="https://chat.vite.dev/" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#discord-icon"></use></svg>Discord</a></li>
-      <li><a href="https://x.com/vite_js" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#x-icon"></use></svg>X.com</a></li>
-      <li><a href="https://bsky.app/profile/vite.dev" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#bluesky-icon"></use></svg>Bluesky</a></li>
-    </ul>
-  </div>
-</section>
+// Controls
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.screenSpacePanning = true;
+controls.target.set(0.0, 1.0, 0.0);
+controls.update();
 
-<div class="ticks"></div>
-<section id="spacer"></section>
-`;
+// Scene
+const scene = new THREE.Scene();
 
-setupCounter(document.querySelector<HTMLButtonElement>("#counter")!);
+// Light
+const light = new THREE.DirectionalLight(0xffffff, Math.PI);
+light.position.set(1.0, 1.0, 1.0).normalize();
+scene.add(light);
+
+// Grid
+const gridHelper = new THREE.GridHelper(10, 10);
+scene.add(gridHelper);
+
+// GLTFLoader with VRM plugin (WebGPU: use MToonNodeMaterial)
+const loader = new GLTFLoader();
+loader.register((parser) => {
+  const mtoonMaterialPlugin = new MToonMaterialLoaderPlugin(parser, {
+    materialType: MToonNodeMaterial,
+  });
+  return new VRMLoaderPlugin(parser, { mtoonMaterialPlugin });
+});
+
+let currentVrm: VRM | undefined;
+
+function load(url: string): void {
+  loader.load(
+    url,
+    (gltf) => {
+      const vrm = gltf.userData.vrm as VRM;
+
+      VRMUtils.removeUnnecessaryVertices(gltf.scene);
+      VRMUtils.combineSkeletons(gltf.scene);
+      VRMUtils.combineMorphs(vrm);
+
+      if (currentVrm) {
+        scene.remove(currentVrm.scene);
+        VRMUtils.deepDispose(currentVrm.scene);
+      }
+
+      vrm.scene.traverse((obj) => {
+        obj.frustumCulled = false;
+      });
+
+      currentVrm = vrm;
+      scene.add(vrm.scene);
+      VRMUtils.rotateVRM0(vrm);
+
+      document.getElementById("info")?.classList.add("hidden");
+      console.log("VRM loaded:", vrm);
+    },
+    (progress) => {
+      console.log("Loading...", 100.0 * (progress.loaded / progress.total), "%");
+    },
+    (error) => {
+      console.error("Error loading VRM:", error);
+    },
+  );
+}
+
+// Drag and drop
+window.addEventListener("dragover", (event) => {
+  event.preventDefault();
+});
+
+window.addEventListener("drop", (event) => {
+  event.preventDefault();
+  const files = event.dataTransfer?.files;
+  if (!files || files.length === 0) return;
+  const file = files[0];
+  const blob = new Blob([file], { type: "application/octet-stream" });
+  const url = URL.createObjectURL(blob);
+  load(url);
+});
+
+// Resize
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// Animation loop
+const clock = new THREE.Clock();
+clock.start();
+
+void renderer.setAnimationLoop(() => {
+  const delta = clock.getDelta();
+  currentVrm?.update(delta);
+  renderer.render(scene, camera);
+});
