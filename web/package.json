@@ -6,8 +6,7 @@
   "scripts": {
     "dev": "vp dev",
     "build": "tsc && vp build",
-    "preview": "vp preview",
-    "prepare": "vp config"
+    "preview": "vp preview"
   },
   "dependencies": {
     "@pixiv/three-vrm": "^3.5.5",
