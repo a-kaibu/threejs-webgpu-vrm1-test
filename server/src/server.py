@@ -184,10 +184,14 @@ if __name__ == "__main__":
     parser.add_argument("--verbose", "-v", action="count")
     args = parser.parse_args()
 
-    if args.verbose:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
+    log_level = logging.DEBUG if args.verbose else logging.INFO
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+        datefmt="%H:%M:%S",
+    )
+    # enable access log
+    logging.getLogger("aiohttp.access").setLevel(log_level)
 
     if args.cert_file:
         ssl_context = ssl.SSLContext()
@@ -195,9 +199,13 @@ if __name__ == "__main__":
     else:
         ssl_context = None
 
+    async def preflight(_request):
+        return web.Response(headers=CORS_HEADERS)
+
     app = web.Application(middlewares=[cors_middleware])
     app.on_shutdown.append(on_shutdown)
+    app.router.add_route("OPTIONS", "/offer", preflight)
     app.router.add_post("/offer", offer)
     web.run_app(
-        app, access_log=None, host=args.host, port=args.port, ssl_context=ssl_context
+        app, host=args.host, port=args.port, ssl_context=ssl_context
     )
