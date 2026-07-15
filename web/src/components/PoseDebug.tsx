@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from "react";
 import { useWebRTC, type PoseFrame } from "../hooks/useWebRTC";
 
-const SERVER_URL = "http://localhost:8787";
+const SERVER_URL = "http://127.0.0.1:8787";
 
 const BODY_EDGES: [number, number][] = [
   [0, 1],
