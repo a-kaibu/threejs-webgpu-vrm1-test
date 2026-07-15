@@ -7,7 +7,11 @@ export interface PoseFrame {
   frame: number;
   timestamp: number;
   inference_ms: number;
-  persons: { keypoints: [number, number][]; scores: number[] }[];
+  persons: {
+    keypoints: [number, number][];
+    keypoints3d: [number, number, number][];
+    scores: number[];
+  }[];
   image_size: [number, number];
 }
 

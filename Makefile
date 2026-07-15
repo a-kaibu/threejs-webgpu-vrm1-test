@@ -8,13 +8,14 @@ WEB_PID    := $(PID_DIR)/web.pid
 SERVER_LOG := $(LOG_DIR)/server.log
 WEB_LOG    := $(LOG_DIR)/web.log
 SERVER_PORT := 8989
+CUDA_LIB_DIR := /usr/local/cuda-12.8/targets/x86_64-linux/lib:/lib/x86_64-linux-gnu
 
 $(PID_DIR) $(LOG_DIR):
 	mkdir -p $@
 
 setup:
 	cd web && pnpm install
-	cd server && uv sync && uv run python src/download_models.py
+	cd server && uv sync && LD_LIBRARY_PATH=$(CUDA_LIB_DIR):$${LD_LIBRARY_PATH:-} uv run python src/download_models.py
 
 up: $(PID_DIR) $(LOG_DIR) server web
 	@echo "Server log: $(SERVER_LOG)  Web log: $(WEB_LOG)"
@@ -24,7 +25,7 @@ server: $(PID_DIR) $(LOG_DIR)
 	@if [ -f $(SERVER_PID) ] && kill -0 $$(cat $(SERVER_PID)) 2>/dev/null; then \
 		echo "server already running (pid $$(cat $(SERVER_PID)))"; \
 	else \
-		setsid sh -c 'cd "$(ROOT_DIR)/server" && exec uv run python src/server.py --port $(SERVER_PORT)' > $(ROOT_DIR)/$(SERVER_LOG) 2>&1 < /dev/null & \
+		setsid sh -c 'cd "$(ROOT_DIR)/server" && export LD_LIBRARY_PATH="$(CUDA_LIB_DIR):$${LD_LIBRARY_PATH:-}" && exec uv run python src/server.py --port $(SERVER_PORT)' > $(ROOT_DIR)/$(SERVER_LOG) 2>&1 < /dev/null & \
 		echo $$! > $(SERVER_PID); \
 		echo "server started on port $(SERVER_PORT) (pid $$(cat $(SERVER_PID)))"; \
 	fi

@@ -17,3 +17,109 @@ body {
 canvas {
   display: block;
 }
+
+.live {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 35%, #26314d, #090c14 70%);
+  color: #fff;
+  font-family: system-ui, sans-serif;
+}
+
+.live__video,
+.live__stage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.live__video {
+  object-fit: cover;
+}
+
+.live__stage {
+  z-index: 1;
+}
+
+.live__drop {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  color: #d8e2ff;
+  font-size: clamp(1rem, 2.5vw, 1.5rem);
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  text-shadow: 0 2px 12px #000;
+}
+
+.live__controls {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100% - 32px);
+  padding: 10px 14px;
+  border: 1px solid #ffffff24;
+  border-radius: 12px;
+  background: #0a0d16cc;
+  box-shadow: 0 8px 32px #0006;
+  backdrop-filter: blur(12px);
+}
+
+.live__controls button {
+  padding: 7px 12px;
+  border: 1px solid #ffffff30;
+  border-radius: 8px;
+  background: #2c5ee8;
+  color: #fff;
+  cursor: pointer;
+}
+
+.live__controls button:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.live__controls label,
+.live__status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.live__status span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #707888;
+}
+
+.live__status--connected span {
+  background: #32e58d;
+  box-shadow: 0 0 9px #32e58d;
+}
+
+.live__status--error span {
+  background: #ff5263;
+}
+
+.live__controls small {
+  color: #aeb8cc;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .live__controls {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+}

@@ -1,6 +1,7 @@
 import { createRouter, createRootRoute, createRoute, Outlet, Link } from "@tanstack/react-router";
 import { VrmViewerPage } from "./routes/index";
 import { DebugPage } from "./routes/debug";
+import { LivePage } from "./routes/live";
 
 function RootLayout() {
   return (
@@ -23,6 +24,13 @@ function RootLayout() {
           activeProps={{ style: { color: "#fff" } }}
         >
           VRM
+        </Link>
+        <Link
+          to="/live"
+          style={{ color: "#aaa", textDecoration: "none" }}
+          activeProps={{ style: { color: "#fff" } }}
+        >
+          Live
         </Link>
         <Link
           to="/debug"
@@ -48,8 +56,13 @@ const debugRoute = createRoute({
   path: "/debug",
   component: DebugPage,
 });
+const liveRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/live",
+  component: LivePage,
+});
 
-const routeTree = rootRoute.addChildren([indexRoute, debugRoute]);
+const routeTree = rootRoute.addChildren([indexRoute, liveRoute, debugRoute]);
 
 export const router = createRouter({ routeTree });
 

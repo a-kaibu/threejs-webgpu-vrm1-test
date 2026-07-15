@@ -41,13 +41,17 @@ class VideoTransformTrack(MediaStreamTrack):
             h, w = img.shape[:2]
 
             inference_started = time.perf_counter()
-            keypoints, scores = await asyncio.to_thread(pose_estimator.estimate, img)
+            keypoints_3d, scores, keypoints_2d = await asyncio.to_thread(
+                pose_estimator.estimate, img
+            )
             inference_ms = round((time.perf_counter() - inference_started) * 1000)
 
-            self._send_pose_data(keypoints, scores, w, h, inference_ms)
+            self._send_pose_data(
+                keypoints_2d, keypoints_3d, scores, w, h, inference_ms
+            )
 
-            if self.transform == "pose" and len(keypoints) > 0:
-                img = pose_estimator.draw(img, keypoints, scores)
+            if self.transform == "pose" and len(keypoints_2d) > 0:
+                img = pose_estimator.draw(img, keypoints_2d, scores)
                 new_frame = VideoFrame.from_ndarray(img, format="bgr24")
                 new_frame.pts = frame.pts
                 new_frame.time_base = frame.time_base
@@ -59,7 +63,8 @@ class VideoTransformTrack(MediaStreamTrack):
 
     def _send_pose_data(
         self,
-        keypoints,
+        keypoints_2d,
+        keypoints_3d,
         scores,
         width: int,
         height: int,
@@ -69,12 +74,16 @@ class VideoTransformTrack(MediaStreamTrack):
             return
 
         persons = []
-        if len(keypoints) > 0:
-            normalized = pose_estimator.normalize_keypoints(keypoints, width, height)
-            for i in range(len(keypoints)):
+        if len(keypoints_2d) > 0:
+            normalized_2d = pose_estimator.normalize_keypoints_2d(
+                keypoints_2d, width, height
+            )
+            normalized_3d = pose_estimator.normalize_keypoints_3d(keypoints_3d)
+            for i in range(len(keypoints_2d)):
                 persons.append(
                     {
-                        "keypoints": normalized[i],
+                        "keypoints": normalized_2d[i],
+                        "keypoints3d": normalized_3d[i],
                         "scores": [round(float(s), 4) for s in scores[i]],
                     }
                 )
